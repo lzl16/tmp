@@ -1,0 +1,11 @@
+{
+  "name": "five-player-scorekeeper",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "dev:cloud": "node scripts/serve.mjs --cloud",
+    "test": "node --test tests/*.test.*",
+    "build": "node scripts/build.mjs"
+  }
+}

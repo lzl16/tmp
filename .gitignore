@@ -1,0 +1,12 @@
+node_modules/
+.cloudbase/
+.DS_Store
+dist/
+artifacts/
+*.log
+.local-tools/
+.env
+.env.*
+!.env.example
+*.pem
+*.key

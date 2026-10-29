@@ -1,0 +1,143 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { applyRound, createGame, finishGame } from '../public/rules.mjs';
+import { allUserStats, gameStats, userStats } from '../public/stats.mjs';
+
+const names = ['阿东', '阿南', '阿西', '阿北', '阿中'];
+const playerIds = ['east', 'south', 'west', 'north', 'middle'];
+const start = (id = 'game-1') => ({
+  ...createGame({ players: names, mainDealer: 0 }, { id, now: '2026-10-29T09:00:00.000Z' }),
+  playerIds,
+  title: id,
+});
+const round = (game, viceDealer, score) => applyRound(game, { viceDealer, score }, {
+  id: `${game.id}-${game.rounds.length + 1}`,
+  now: '2026-10-29T09:01:00.000Z',
+});
+const complete = (game, time = '2026-10-29T10:00:00.000Z') => finishGame(game, time);
+const bySeat = rows => [...rows].sort((a, b) => a.seat - b.seat);
+
+test('both dealers receive a dealer appearance and all three idle players receive the collective score', () => {
+  const game = round(start(), 1, 200);
+  const rows = bySeat(gameStats(game));
+  assert.deepEqual(rows.map(row => row.dealerRounds), [1, 1, 0, 0, 0]);
+  assert.deepEqual(rows.map(row => row.idleRounds), [0, 0, 1, 1, 1]);
+  assert.deepEqual(rows.map(row => row.dealerScoreTotal), [200, 200, 0, 0, 0]);
+  assert.deepEqual(rows.map(row => row.idleScoreTotal), [0, 0, 200, 200, 200]);
+  assert.deepEqual(rows.map(row => row.dealerAverage), [200, 200, null, null, null]);
+  assert.deepEqual(rows.map(row => row.idleAverage), [null, null, 200, 200, 200]);
+  assert.deepEqual(rows.map(row => row.totalUpgrade), [0, 0, 2, 2, 2]);
+  assert.deepEqual(rows.map(row => row.userId), playerIds);
+});
+
+test('missing settlement fields are derived using all score boundaries, including zero bonus', () => {
+  for (const [score, dealerUpgrade, idleUpgrade] of [
+    [0, 4, 0], [1, 3, 0], [39, 3, 0], [40, 2, 0], [79, 2, 0],
+    [80, 1, 0], [119, 1, 0], [120, 0, 0], [159, 0, 0], [160, 0, 1], [200, 0, 2],
+  ]) {
+    const game = round(start(), 1, score);
+    delete game.rounds[0].dealerUpgrade;
+    delete game.rounds[0].idleUpgrade;
+    assert.deepEqual(bySeat(gameStats(game)).map(row => row.totalUpgrade),
+      [dealerUpgrade, dealerUpgrade, idleUpgrade, idleUpgrade, idleUpgrade], `score ${score}`);
+  }
+});
+
+test('stored cumulative upgrades survive complete level cycles and never use the wrapped final rank', () => {
+  let game = start();
+  for (let index = 0; index < 4; index += 1) game = round(game, game.mainDealer === 0 ? 1 : 0, 0);
+  const rows = bySeat(gameStats(game));
+  assert.equal(rows[0].totalUpgrade, 16);
+  assert.equal(rows[1].totalUpgrade, 16);
+  assert.equal(rows[0].finalLevel, '5');
+  assert.equal(rows[1].finalLevel, '5');
+  assert.equal(rows[0].rank, 1);
+  assert.equal(rows[1].rank, 2);
+});
+
+test('the ending displayed main dealer wins tied upgrades by half a level, without adding to upgrade totals', () => {
+  const game = round(start(), 1, 120);
+  const rows = gameStats(game);
+  assert.equal(game.mainDealer, 2);
+  assert.equal(rows[0].seat, 2);
+  assert.equal(rows[0].rank, 1);
+  assert.equal(rows[0].mainDealerBonus, 0.5);
+  assert.ok(rows.every(row => row.totalUpgrade === 0));
+  assert.deepEqual(bySeat(rows).map(row => row.rank), [2, 2, 1, 2, 2]);
+  assert.equal(rows.find(row => row.seat === game.rounds[0].mainDealer).mainDealerBonus, 0);
+});
+
+test('competition ranks skip occupied places and ties keep seat order', () => {
+  // Seats 0, 1 and 2 each gain 2 levels across three dealer wins.
+  // Seat 3 is ending main dealer with 0 upgrades, so it follows that tie in fourth place.
+  const game = {
+    ...start(),
+    mainDealer: 3,
+    rounds: [[0, 1], [1, 2], [2, 0]].map(([mainDealer, viceDealer]) => ({
+      mainDealer, viceDealer, score: 80, dealerUpgrade: 1, idleUpgrade: 0,
+    })),
+    levels: ['4', '4', '4', '2', '2'],
+  };
+  const rows = gameStats(game);
+  assert.deepEqual(rows.map(row => row.seat), [0, 1, 2, 3, 4]);
+  assert.deepEqual(rows.map(row => row.rank), [1, 1, 1, 4, 5]);
+  assert.deepEqual(rows.map(row => row.totalUpgrade), [2, 2, 2, 0, 0]);
+});
+
+test('role averages are weighted by rounds across games while ranks are averaged once per game', () => {
+  const first = complete(round(start('one'), 1, 0));
+  let second = start('two');
+  second = round(second, 1, 120);
+  second = round(second, 0, 240);
+  second = round(second, 4, 160);
+  second = complete(second, '2026-10-30T10:00:00.000Z');
+  const stats = userStats('east', [first, second]);
+  assert.equal(stats.completedGames, 2);
+  assert.equal(stats.dealerRounds, 3);
+  assert.equal(stats.dealerScoreTotal, 360);
+  assert.equal(stats.dealerAverage, 120);
+  assert.equal(stats.idleRounds, 1);
+  assert.equal(stats.idleScoreTotal, 160);
+  assert.equal(stats.idleAverage, 160);
+  assert.equal(stats.averageRank, (userStats('east', [first]).averageRank + userStats('east', [second]).averageRank) / 2);
+  assert.equal(stats.totalUpgrade, 5);
+  assert.deepEqual(stats.history.map(row => row.gameId), ['two', 'one']);
+  assert.equal(stats.history[0].title, 'two');
+});
+
+test('unfinished and zero-round games are excluded from lifetime results and undefined averages remain null', () => {
+  const empty = complete(start('empty'));
+  const active = round(start('active'), 1, 0);
+  assert.ok(gameStats(empty).every(row => row.rank === null && row.mainDealerBonus === 0));
+  const stats = userStats('east', [empty, active]);
+  assert.equal(stats.completedGames, 0);
+  assert.equal(stats.dealerRounds, 0);
+  assert.equal(stats.idleRounds, 0);
+  assert.equal(stats.dealerAverage, null);
+  assert.equal(stats.idleAverage, null);
+  assert.equal(stats.averageRank, null);
+  assert.deepEqual(stats.history, []);
+  assert.equal(userStats('unknown', [complete(active)]).completedGames, 0);
+});
+
+test('profiles with equal nicknames stay separate and names are used only for games without profile IDs', () => {
+  const first = complete(round(start('one'), 1, 0));
+  const second = complete({ ...round(start('two'), 1, 200), playerIds: ['other-east', ...playerIds.slice(1)] });
+  assert.equal(userStats('east', [first, second]).completedGames, 1);
+  assert.equal(userStats('other-east', [first, second]).completedGames, 1);
+  assert.equal(userStats(names[0], [first, second]).completedGames, 0);
+  const legacy = { ...first };
+  delete legacy.playerIds;
+  assert.equal(userStats(names[0], [legacy]).completedGames, 1);
+  const results = allUserStats([{ id: 'east', name: names[0] }, { id: 'other-east', name: names[0] }], [first, second]);
+  assert.equal(results[0].name, results[1].name);
+  assert.notEqual(results[0].dealerAverage, results[1].dealerAverage);
+});
+
+test('statistics do not mutate recorded games', () => {
+  const game = complete(round(start(), 1, 35));
+  const before = structuredClone(game);
+  gameStats(game);
+  userStats('east', [game]);
+  assert.deepEqual(game, before);
+});
