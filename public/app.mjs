@@ -130,7 +130,8 @@ async function route(quiet = false) {
   } catch (error) {
     if (revision !== routeRevision) return;
     state.loading = false;
-    if (quiet) showError(error); else state.error = error.message || '无法读取记录';
+    state.error = error.message || '无法读取记录，请重试';
+    if (quiet) showError(error);
     render();
   }
 }

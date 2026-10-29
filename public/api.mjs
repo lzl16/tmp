@@ -41,7 +41,17 @@ function randomKey() {
 async function digest(value) {
   return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
-const failure = (code, message) => Object.assign(new Error(message),{code});
+const failure = (code, message) => Object.assign(new Error(message),{code,isApiFailure:true});
+function cloudFailure(error) {
+  if (error?.isApiFailure) return error;
+  const code = String(error?.code || error?.error?.code || 'CLOUD_CONNECTION');
+  const raw = typeof error === 'string' ? error : error?.message || error?.errMsg || error?.error?.message || '';
+  const message = typeof raw === 'string' ? raw : '';
+  if (code === 'LOGIN_TYPE_DISABLED') return failure(code,'云端访客登录已停用，请联系维护者恢复访问。');
+  if (/network|fetch|网络|timeout|超时/i.test(`${code} ${message}`)) return failure(code,'连接云端失败，请检查网络后重试。');
+  if (/login|auth|credential|token|登录|身份/i.test(`${code} ${message}`)) return failure(code,`云端身份验证未完成（${code}），请重试。`);
+  return failure(code,message || `云端连接暂时失败（${code}），请重试。`);
+}
 function cleanName(value) {
   if (typeof value !== 'string') throw failure('VALIDATION','请填写用户昵称');
   const name = value.normalize('NFKC').trim();
@@ -156,7 +166,15 @@ async function localRequest(action, payload = {}, expectedVersion) {
   if (navigator.locks) return navigator.locks.request('five-card-v2-data',async()=>execute());
   return execute();
 }
-let sdkPromise;
+let sdkPromise, loginPromise;
+function signIn(app) {
+  if (!loginPromise) loginPromise = app.auth().signInAnonymously().finally(() => { loginPromise = undefined; });
+  return loginPromise;
+}
+function isLoginFailure(error) {
+  if (error?.code === 'LOGIN_TYPE_DISABLED') return false;
+  return /login|auth|credential|token|登录|身份/i.test(`${error?.code || ''} ${error?.message || error?.errMsg || error || ''}`);
+}
 function loadCloud() {
   if (!sdkPromise) sdkPromise = new Promise((resolve,reject)=>{
     const script=document.createElement('script');
@@ -166,19 +184,34 @@ function loadCloud() {
   }).then(async()=>{
     if (!window.cloudbase) throw new Error('云端组件未就绪');
     const app=window.cloudbase.init({env:config.envId,region:config.region || 'ap-shanghai'});
-    const auth=app.auth();if (!await auth.getLoginState()) await auth.signInAnonymously();return app;
+    const auth=app.auth();
+    let loggedIn;
+    try { loggedIn=await auth.getLoginState(); }
+    catch (error) { if (!isLoginFailure(error)) throw error; }
+    if (!loggedIn) await signIn(app);
+    return app;
   }).catch(error=>{sdkPromise=undefined;throw error;});
   return sdkPromise;
 }
 export async function api(action,payload={},expectedVersion) {
   if (mode()==='local') return localRequest(action,payload,expectedVersion);
+  try {
   const app=await loadCloud();
   const request=action==='getLegacyRoom' ? {action:'getRoom',...(legacySession() || {})} : {apiVersion:2,action,payload,gameId:payload.gameId,writeKey:gameKey(payload.gameId),expectedVersion};
-  const response=await app.callFunction({name:config.functionName || 'scorekeeper',data:request});
+  let response;
+  try { response=await app.callFunction({name:config.functionName || 'scorekeeper',data:request}); }
+  catch (error) {
+    // Only a rejected identity check is retried. Business failures and uncertain
+    // write outcomes must never trigger an automatic second submission.
+    if (!isLoginFailure(error)) throw error;
+    await signIn(app);
+    response=await app.callFunction({name:config.functionName || 'scorekeeper',data:request});
+  }
   const output=typeof response.result==='string'?JSON.parse(response.result):response.result;
   if (output?.error) throw failure(output.error.code,output.error.message || '云端操作失败');
   if (!output || typeof output!=='object') throw new Error('云端响应不完整，请刷新重试');
   if (action==='createGame' && output.game && output.writeKey) saveGameKey(output.game.id,output.writeKey);
   if (action==='importLegacy') for (const [id,key] of Object.entries(output.writeKeys || {})) saveGameKey(id,key);
   return output;
+  } catch (error) { throw cloudFailure(error); }
 }
