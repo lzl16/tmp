@@ -2066,6 +2066,117 @@
           "finalLevel": "2"
         }
       ]
+    },
+    {
+      "id": "g_f024c60a5c01e4211da5aa1ceb65b711",
+      "title": "自动备份验收（空场）",
+      "playerIds": [
+        "u_05617a4d327bd0033c568ba56a7c97e2",
+        "u_d04ba515629927c1ab46e398ae485e97",
+        "u_eae3689b2fdf086b173bdcf84c6f0163",
+        "u_fce960d321bd79bcc57d9a4c73b2f7be",
+        "u_fbb426174b118dc8196954ea2ca974dd"
+      ],
+      "players": [
+        "测试一",
+        "测试二",
+        "测试三",
+        "测试四",
+        "测试五"
+      ],
+      "initialMainDealer": 0,
+      "mainDealer": 0,
+      "levels": [
+        "2",
+        "2",
+        "2",
+        "2",
+        "2"
+      ],
+      "status": "finished",
+      "version": 1,
+      "createdAt": "2026-11-02T04:42:34.955Z",
+      "updatedAt": "2026-11-02T04:43:05.914Z",
+      "finishedAt": "2026-11-02T04:43:05.914Z",
+      "rounds": [],
+      "roundCount": 0,
+      "statistics": [
+        {
+          "userId": "u_05617a4d327bd0033c568ba56a7c97e2",
+          "name": "测试一",
+          "seat": 0,
+          "rank": null,
+          "totalUpgrade": 0,
+          "mainDealerBonus": 0,
+          "dealerRounds": 0,
+          "idleRounds": 0,
+          "dealerScoreTotal": 0,
+          "idleScoreTotal": 0,
+          "dealerAverage": null,
+          "idleAverage": null,
+          "finalLevel": "2"
+        },
+        {
+          "userId": "u_d04ba515629927c1ab46e398ae485e97",
+          "name": "测试二",
+          "seat": 1,
+          "rank": null,
+          "totalUpgrade": 0,
+          "mainDealerBonus": 0,
+          "dealerRounds": 0,
+          "idleRounds": 0,
+          "dealerScoreTotal": 0,
+          "idleScoreTotal": 0,
+          "dealerAverage": null,
+          "idleAverage": null,
+          "finalLevel": "2"
+        },
+        {
+          "userId": "u_eae3689b2fdf086b173bdcf84c6f0163",
+          "name": "测试三",
+          "seat": 2,
+          "rank": null,
+          "totalUpgrade": 0,
+          "mainDealerBonus": 0,
+          "dealerRounds": 0,
+          "idleRounds": 0,
+          "dealerScoreTotal": 0,
+          "idleScoreTotal": 0,
+          "dealerAverage": null,
+          "idleAverage": null,
+          "finalLevel": "2"
+        },
+        {
+          "userId": "u_fce960d321bd79bcc57d9a4c73b2f7be",
+          "name": "测试四",
+          "seat": 3,
+          "rank": null,
+          "totalUpgrade": 0,
+          "mainDealerBonus": 0,
+          "dealerRounds": 0,
+          "idleRounds": 0,
+          "dealerScoreTotal": 0,
+          "idleScoreTotal": 0,
+          "dealerAverage": null,
+          "idleAverage": null,
+          "finalLevel": "2"
+        },
+        {
+          "userId": "u_fbb426174b118dc8196954ea2ca974dd",
+          "name": "测试五",
+          "seat": 4,
+          "rank": null,
+          "totalUpgrade": 0,
+          "mainDealerBonus": 0,
+          "dealerRounds": 0,
+          "idleRounds": 0,
+          "dealerScoreTotal": 0,
+          "idleScoreTotal": 0,
+          "dealerAverage": null,
+          "idleAverage": null,
+          "finalLevel": "2"
+        }
+      ]
     }
   ],
   "userStatistics": [
@@ -2505,6 +2616,6 @@
       "name": "测试四"
     }
   ],
-  "exportedAt": "2026-11-02T03:53:09.187Z",
-  "dataHash": "992532d5f3c028132ebb0febb11acf6df409ecc863d58816b2964a3a985b207a"
+  "exportedAt": "2026-11-02T04:43:21.757Z",
+  "dataHash": "983aa0b9ff803493753cf6b9d6d5dde0c3ad70a17c94e76f958965a1d4704cee"
 }
