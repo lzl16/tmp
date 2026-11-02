@@ -341,7 +341,12 @@ document.addEventListener('click', async event => {
   else if (action === 'undo' || action === 'finish') confirmation(action);
   else if (action === 'confirm-undo' || action === 'confirm-finish') {
     const isUndo = action === 'confirm-undo', game = state.game;
-    await request(isUndo ? 'undoRound' : 'finishGame', { gameId: game.id }, () => { closeModal(true); render(); toast(isUndo ? '已撤销上一局，等级与主庄已恢复' : '本场已结束，统计已生成'); if (!isUndo) window.scrollTo({ top: 0, behavior: 'smooth' }); }, game.version);
+    await request(isUndo ? 'undoRound' : 'finishGame', { gameId: game.id }, result => {
+      closeModal(true); render();
+      const message = result.backup?.status === 'queued' ? '本场已结束，GitHub 备份已安排' : result.backup?.status === 'pending' ? '本场已结束，GitHub 备份将在后台重试' : '本场已结束，统计已生成';
+      toast(isUndo ? '已撤销上一局，等级与主庄已恢复' : message);
+      if (!isUndo) window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, game.version);
   } else if (action === 'more-games') {
     await request('listGames', { cursor: state.nextCursor, limit: 50 }, result => {
       const ids = new Set(state.games.map(g => g.id)); state.games.push(...(result.games || []).filter(g => !ids.has(g.id))); state.nextCursor = result.nextCursor || null; render();

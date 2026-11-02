@@ -25,6 +25,7 @@ npm run build
 index.js
 service.cjs
 v2.cjs
+github-backup.cjs
 rules.mjs
 stats.mjs
 package.json
@@ -33,6 +34,8 @@ package.json
 选择云端安装依赖；SDK 固定 `@cloudbase/node-sdk` 3.18.7。新版通过 `apiVersion: 2` 进入 `v2.cjs`，未带该字段的旧客户端继续使用 `service.cjs`。
 
 ## 数据与访问
+
+每场结束后的 GitHub 数据备份配置见 [BACKUP.md](BACKUP.md)。GitHub 触发凭据仅保存在云函数环境变量，不能写入本目录或静态文件。
 
 沿用 `scorekeeper_rooms` 集合，客户端权限 ADMINONLY。旧版文档为原随机编号；新版用户 `u_...`、牌局 `g_...` 以 kind 区分。公开返回使用字段白名单，管理密钥哈希不返回前端。名单采用昵称档案，无密码登录；本站访客可浏览新版牌局和成绩，写入牌局需要该场管理密钥。
 

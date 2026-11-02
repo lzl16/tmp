@@ -1,0 +1,49 @@
+name: Back up poker records
+
+on:
+  workflow_dispatch:
+    inputs:
+      trigger_game:
+        description: Finished game ID (leave empty for a complete manual backup)
+        required: false
+        default: ''
+      trigger_version:
+        description: Version saved before dispatch
+        required: false
+        default: ''
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: poker-database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Read CloudBase records and calculate statistics
+        env:
+          CLOUDBASE_ENV_ID: poker-score-d4gsbq6k27d6458ca
+          TRIGGER_GAME: ${{ inputs.trigger_game }}
+        run: node scripts/backup-records.mjs
+      - name: Commit changed records
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- backups/database.json
+          if git diff --cached --quiet -- backups/database.json; then
+            echo 'Records unchanged; no commit needed.'
+            exit 0
+          fi
+          git commit -m 'Back up poker records after database update'
+          git pull --rebase origin main
+          git push origin HEAD:main

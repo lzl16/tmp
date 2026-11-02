@@ -128,7 +128,7 @@ function pagination(payload) {
   return { limit, offset: Number(cursor) };
 }
 
-function createHandler({ db, now = () => new Date().toISOString(), randomId = () => randomBytes(16).toString('hex'), randomKey = () => randomBytes(32).toString('base64url') }) {
+function createHandler({ db, now = () => new Date().toISOString(), randomId = () => randomBytes(16).toString('hex'), randomKey = () => randomBytes(32).toString('base64url'), onGameFinished }) {
   return async function handle(event) {
     try {
       if (!object(event) || event.apiVersion !== 2 || typeof event.action !== 'string') throw new ApiError('VALIDATION', '请求格式无效');
@@ -308,6 +308,14 @@ function createHandler({ db, now = () => new Date().toISOString(), randomId = ()
         await ref.set(doc);
         result = publicGame(doc, stats);
       });
+      if (event.action === 'finishGame' && onGameFinished) {
+        // The database transaction has committed before contacting GitHub.
+        // Backup outages must never turn a successful settlement into a failure.
+        let backup;
+        try { backup = await onGameFinished(result); }
+        catch { backup = { status: 'pending' }; }
+        return { game: result, backup };
+      }
       return { game: result };
     } catch (error) {
       if (error instanceof ApiError || error?.name === 'RuleError') return { error: { code: error.code, message: error.message } };

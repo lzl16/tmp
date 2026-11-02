@@ -52,11 +52,11 @@ function memoryDb() {
   };
 }
 
-async function setup() {
+async function setup(options = {}) {
   const db = memoryDb();
   let id = 0;
   let token = 0;
-  const handle = createHandler({ db, now: () => '2026-10-29T09:00:00.000Z', randomId: () => (++id).toString(16).padStart(32, '0'), randomKey: () => Buffer.alloc(32, ++token).toString('base64url') });
+  const handle = createHandler({ db, now: () => '2026-10-29T09:00:00.000Z', randomId: () => (++id).toString(16).padStart(32, '0'), randomKey: () => Buffer.alloc(32, ++token).toString('base64url'), ...options });
   const call = (action, payload = {}, extra = {}) => handle({ apiVersion: 2, action, payload, ...extra });
   const users = [];
   for (const name of ['一', '二', '三', '四', '五']) users.push((await call('createUser', { name })).user);
@@ -66,6 +66,28 @@ async function setup() {
   const auth = { gameId: created.game.id, writeKey: created.writeKey };
   return { db, handle, call, users, payload, created, auth };
 }
+
+test('finish dispatches backup only after commit and backup failure never rolls settlement back', async () => {
+  let db, called = 0, committed;
+  const context = await setup({ onGameFinished: async game => {
+    called++;
+    const saved = db.store.get(`${COLLECTION}/${game.id}`);
+    committed = saved?.status === 'finished' && saved.version === game.version;
+    throw new Error('GitHub unavailable');
+  } });
+  db = context.db;
+  const failed = await context.call('finishGame', {}, { ...context.auth, writeKey: 'bad', expectedVersion: 0 });
+  assert.equal(failed.error.code, 'UNAUTHORIZED');
+  assert.equal(called, 0);
+  const ended = await context.call('finishGame', {}, { ...context.auth, expectedVersion: 0 });
+  assert.equal(ended.game.status, 'finished');
+  assert.equal(ended.game.version, 1);
+  assert.deepEqual(ended.backup, { status: 'pending' });
+  assert.equal(called, 1);
+  assert.equal(committed, true, 'backup must observe the committed settlement');
+  await context.call('finishGame', {}, { ...context.auth, expectedVersion: 0 });
+  assert.equal(called, 1, 'a stale repeated finish must not dispatch again');
+});
 
 test('nickname registration normalizes NFKC, whitespace and case atomically', async () => {
   const { call, db } = await setup();
