@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRound, createGame, finishGame } from '../public/rules.mjs';
+import { applyRound, createGame, finishGame, undoLastRound } from '../public/rules.mjs';
 import { allUserStats, gameStats, userStats } from '../public/stats.mjs';
 
 const names = ['阿东', '阿南', '阿西', '阿北', '阿中'];
@@ -162,4 +162,47 @@ test('wrong rounds affect upgrades and rank but never role counts or score denom
   assert.equal(stats.viceDealerRounds, 1);
   assert.equal(stats.viceDealerAverage, 80);
   assert.equal(stats.idleAverage, null);
+});
+
+test('conceded upgrades count idle team levels, include zero outcomes and exclude wrong-play penalties', () => {
+  let game = start('mixed');
+  for (const [vice, score] of [[1, 200], [0, 120], [0, 240], [1, 80], [2, 160]]) game = round(game, vice, score);
+  // Seat 0: one main round conceding 2, two vice rounds conceding 0 and 3,
+  // and two idle rounds upgrading 0 and 1. Never multiply idle upgrades by 3.
+  game = applyRound(game, { type: 'wrong', wrongPlayer: 0 }, { id: 'wrong-0', now: 'then' });
+  game = applyRound(game, { type: 'wrong', wrongPlayer: 1 }, { id: 'wrong-1', now: 'later' });
+  const row = gameStats(game).find(row => row.seat === 0);
+  assert.equal(row.wrongRounds, 1);
+  assert.equal(row.mainDealerConcededUpgradeTotal, 2);
+  assert.equal(row.mainDealerConcededUpgradeAverage, 2);
+  assert.equal(row.viceDealerConcededUpgradeTotal, 3);
+  assert.equal(row.viceDealerConcededUpgradeAverage, 1.5);
+  assert.equal(row.idleUpgradeTotal, 1);
+  assert.equal(row.idleUpgradeAverage, 0.5);
+  assert.equal(row.totalUpgrade, 2, 'the extra wrong-play award still contributes to ranking');
+  assert.equal(gameStats(game).reduce((sum, row) => sum + row.wrongRounds, 0), 2);
+  const beforeWrong = undoLastRound(undoLastRound(game));
+  assert.ok(gameStats(beforeWrong).every(row => row.wrongRounds === 0));
+  const legacy = structuredClone(game);
+  for (const round of legacy.rounds) { delete round.dealerUpgrade; delete round.idleUpgrade; }
+  assert.deepEqual(gameStats(legacy), gameStats(game), 'old score-only records derive the same upgrade means');
+});
+
+test('career upgrade averages use all role rounds, while wrong-only games have no role averages', () => {
+  let first = start('first');
+  for (const [vice, score] of [[1, 200], [0, 120], [0, 240]]) first = round(first, vice, score);
+  let second = start('second');
+  for (const vice of [1, 0, 1]) second = round(second, vice, 0);
+  const wrong = applyRound(start('wrong'), { type: 'wrong', wrongPlayer: 0 }, { id: 'wrong', now: 'then' });
+  const stats = userStats('east', [complete(first), complete(second), complete(wrong), round(start('active'), 1, 400)]);
+  assert.equal(stats.wrongRounds, 1);
+  assert.equal(stats.completedGames, 3);
+  assert.equal(stats.mainDealerConcededUpgradeAverage, 2 / 3);
+  assert.equal(stats.viceDealerConcededUpgradeAverage, 1);
+  assert.equal(stats.idleUpgradeAverage, null);
+  const wrongOnly = userStats('east', [complete(wrong)]);
+  assert.equal(wrongOnly.wrongRounds, 1);
+  assert.equal(wrongOnly.mainDealerConcededUpgradeAverage, null);
+  assert.equal(wrongOnly.viceDealerConcededUpgradeAverage, null);
+  assert.equal(wrongOnly.idleUpgradeAverage, null);
 });

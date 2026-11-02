@@ -32,6 +32,8 @@ test('full export preserves scores, levels, competition ranks and career totals 
   assert.equal(data.games[0].rounds[0].score, 0);
   assert.deepEqual(data.games[0].statistics.map(row => row.rank), [1, 2, 3, 3, 3]);
   assert.equal(data.userStatistics[0].mainDealerAverage, 0);
+  assert.equal(data.userStatistics[0].mainDealerConcededUpgradeAverage, 0);
+  assert.equal(data.userStatistics[0].wrongRounds, 0);
   assert.equal(data.userStatistics[0].completedGames, 1);
   assert.equal(data.userStatistics[0].averageRank, 2);
   assert.ok(!JSON.stringify(data).includes('hidden-'));
@@ -51,6 +53,8 @@ test('backup preserves wrong player, pending main dealer and undo metadata with 
   assert.equal(data.userStatistics[0].mainDealerRounds, 1);
   assert.equal(data.userStatistics[0].viceDealerRounds, 0);
   assert.equal(data.userStatistics[0].mainDealerAverage, 0);
+  assert.equal(data.userStatistics[3].wrongRounds, 1);
+  assert.equal(data.userStatistics[0].mainDealerConcededUpgradeAverage, 0);
   changed = applyRound({ ...game, status: 'active' }, { mainDealer: 4, viceDealer: 1, score: 120 }, { id: 'manual', now: 'later' });
   Object.assign(game, finishGame(changed, 'end'), { version: 6, roundCount: 3 });
   data = await collectRecords(call);
