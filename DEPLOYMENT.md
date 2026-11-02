@@ -1,13 +1,14 @@
 # 部署记录
 
-## 2026-11-02 数据备份（部分启用，待腾讯云部署授权）
+## 2026-11-02 数据备份（代码已部署，待触发授权验收）
 
 - 用户明确选择将昵称、得分、名次及统计保存到原公开仓库 `lzl16/tmp`。
 - 备份工作流已上传且启用，首次运行 https://github.com/lzl16/tmp/actions/runs/41385421477 成功，提交 `de9ed04`。
 - `backups/database.json` 已包含 10 位玩家、5 场牌局及历史统计，导出时间 `2026-11-02T03:53:09.187Z`，校验值 `992532d5f3c028132ebb0febb11acf6df409ecc863d58816b2964a3a985b207a`；不含管理密钥或哈希。
 - GitHub 每小时第 17 分钟进行补备份检查，未变更不提交。
-- 结算后触发的代码及 ZIP 已准备，55 项测试通过；尚未部署到腾讯云。控制台会话已过期，停在用户重新登录页面。还需在云函数设置 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main` 及用户亲自生成、直接填入的 Actions-write 最小权限 `GITHUB_BACKUP_TOKEN`。
-- 预备静态版本 `f5304de38bb1`，云函数包 `artifacts/scorekeeper-backup-function.zip`；当前线上仍是下述已验证版本。不得把仅代码准备完成表述为结算后立即触发已上线。
+- 结算后触发的代码与网页已部署，55 项测试通过；云函数部署后只读读取 10 位玩家正常。云函数配置修改时间显示 `2026-11-02 12:07:58`。
+- 现已在云函数编辑表单准备 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main`、空白 `GITHUB_BACKUP_TOKEN`，等待用户亲自生成并直接填入仅 tmp 仓库 Actions-write 的令牌后保存；令牌有效期表单显示至 2027-01-31。尚未确认授权已保存，结算自动触发尚未线上验收。
+- 当前静态版本 `f5304de38bb1`，云函数包 `artifacts/scorekeeper-backup-function.zip`。不得把代码部署完成表述为结算后立即触发已验收。
 - 备选私有仓库 `lzl16/poker-score-records` 未上传成绩，工作流停用且仓库已归档。
 
 ## 2026-10-29 读取失败修复
