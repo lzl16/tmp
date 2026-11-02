@@ -68,6 +68,19 @@ export function settleRound({ mainDealer, viceDealer, score, levels }) {
   return { mainDealer, viceDealer, score, dealerUpgrade, idleUpgrade, levelsBefore, levelsAfter, nextMainDealer };
 }
 
+export function settleWrongRound({ wrongPlayer, levels }) {
+  seat(wrongPlayer, '错牌玩家');
+  if (!Array.isArray(levels) || levels.length !== 5 || levels.some(rank => !LEVELS.includes(rank))) {
+    throw new RuleError('需要五位玩家的有效等级');
+  }
+  return {
+    type: 'wrong', wrongPlayer, score: null, viceDealer: null,
+    levelsBefore: [...levels],
+    levelsAfter: levels.map((rank, index) => rankAfter(rank, index === wrongPlayer ? 0 : 1)),
+    nextMainDealer: null,
+  };
+}
+
 export function createGame({ players, mainDealer }, { id, now } = {}) {
   const cleanPlayers = validatePlayers(players);
   seat(mainDealer, '首局主庄');
@@ -91,13 +104,21 @@ function requireActive(game) {
   if (!game || game.status !== 'active') throw new RuleError('这场游戏已经结束，不能继续记分', 'GAME_FINISHED');
 }
 
-export function applyRound(game, { viceDealer, score }, { id, now } = {}) {
+export function applyRound(game, payload, { id, now } = {}) {
   requireActive(game);
   if (typeof id !== 'string' || !id || typeof now !== 'string' || !now) {
     throw new RuleError('缺少记录编号或创建时间');
   }
-  const result = settleRound({ mainDealer: game.mainDealer, viceDealer, score, levels: game.levels });
-  const round = { id, number: game.rounds.length + 1, ...result, createdAt: now };
+  const type = payload.type ?? 'score';
+  if (!['score', 'wrong'].includes(type)) throw new RuleError('请选择正常得分或错牌');
+  let result;
+  if (type === 'wrong') {
+    result = { ...settleWrongRound({ wrongPlayer: payload.wrongPlayer, levels: game.levels }), mainDealer: game.mainDealer };
+  } else {
+    const mainDealer = game.mainDealer === null ? payload.mainDealer : game.mainDealer;
+    result = { type, ...settleRound({ mainDealer, viceDealer: payload.viceDealer, score: payload.score, levels: game.levels }) };
+  }
+  const round = { id, number: game.rounds.length + 1, ...result, mainDealerBefore: game.mainDealer, createdAt: now };
   return { ...game, mainDealer: result.nextMainDealer, levels: result.levelsAfter, rounds: [...game.rounds, round] };
 }
 
@@ -105,7 +126,8 @@ export function undoLastRound(game) {
   requireActive(game);
   if (!game.rounds.length) throw new RuleError('还没有可以撤销的记录', 'NO_ROUNDS');
   const last = game.rounds[game.rounds.length - 1];
-  return { ...game, mainDealer: last.mainDealer, levels: [...last.levelsBefore], rounds: game.rounds.slice(0, -1) };
+  const mainDealer = Object.hasOwn(last, 'mainDealerBefore') ? last.mainDealerBefore : last.mainDealer;
+  return { ...game, mainDealer, levels: [...last.levelsBefore], rounds: game.rounds.slice(0, -1) };
 }
 
 export function finishGame(game, now) {

@@ -17,14 +17,17 @@ const round = (game, viceDealer, score) => applyRound(game, { viceDealer, score 
 const complete = (game, time = '2026-10-29T10:00:00.000Z') => finishGame(game, time);
 const bySeat = rows => [...rows].sort((a, b) => a.seat - b.seat);
 
-test('both dealers receive a dealer appearance and all three idle players receive the collective score', () => {
+test('main and vice appearances and averages are separated while idle players receive the collective score', () => {
   const game = round(start(), 1, 200);
   const rows = bySeat(gameStats(game));
-  assert.deepEqual(rows.map(row => row.dealerRounds), [1, 1, 0, 0, 0]);
+  assert.deepEqual(rows.map(row => row.mainDealerRounds), [1, 0, 0, 0, 0]);
+  assert.deepEqual(rows.map(row => row.viceDealerRounds), [0, 1, 0, 0, 0]);
   assert.deepEqual(rows.map(row => row.idleRounds), [0, 0, 1, 1, 1]);
-  assert.deepEqual(rows.map(row => row.dealerScoreTotal), [200, 200, 0, 0, 0]);
+  assert.deepEqual(rows.map(row => row.mainDealerScoreTotal), [200, 0, 0, 0, 0]);
+  assert.deepEqual(rows.map(row => row.viceDealerScoreTotal), [0, 200, 0, 0, 0]);
   assert.deepEqual(rows.map(row => row.idleScoreTotal), [0, 0, 200, 200, 200]);
-  assert.deepEqual(rows.map(row => row.dealerAverage), [200, 200, null, null, null]);
+  assert.deepEqual(rows.map(row => row.mainDealerAverage), [200, null, null, null, null]);
+  assert.deepEqual(rows.map(row => row.viceDealerAverage), [null, 200, null, null, null]);
   assert.deepEqual(rows.map(row => row.idleAverage), [null, null, 200, 200, 200]);
   assert.deepEqual(rows.map(row => row.totalUpgrade), [0, 0, 2, 2, 2]);
   assert.deepEqual(rows.map(row => row.userId), playerIds);
@@ -93,9 +96,12 @@ test('role averages are weighted by rounds across games while ranks are averaged
   second = complete(second, '2026-10-30T10:00:00.000Z');
   const stats = userStats('east', [first, second]);
   assert.equal(stats.completedGames, 2);
-  assert.equal(stats.dealerRounds, 3);
-  assert.equal(stats.dealerScoreTotal, 360);
-  assert.equal(stats.dealerAverage, 120);
+  assert.equal(stats.mainDealerRounds, 2);
+  assert.equal(stats.mainDealerScoreTotal, 120);
+  assert.equal(stats.mainDealerAverage, 60);
+  assert.equal(stats.viceDealerRounds, 1);
+  assert.equal(stats.viceDealerScoreTotal, 240);
+  assert.equal(stats.viceDealerAverage, 240);
   assert.equal(stats.idleRounds, 1);
   assert.equal(stats.idleScoreTotal, 160);
   assert.equal(stats.idleAverage, 160);
@@ -111,9 +117,9 @@ test('unfinished and zero-round games are excluded from lifetime results and und
   assert.ok(gameStats(empty).every(row => row.rank === null && row.mainDealerBonus === 0));
   const stats = userStats('east', [empty, active]);
   assert.equal(stats.completedGames, 0);
-  assert.equal(stats.dealerRounds, 0);
+  assert.equal(stats.mainDealerRounds, 0);
   assert.equal(stats.idleRounds, 0);
-  assert.equal(stats.dealerAverage, null);
+  assert.equal(stats.mainDealerAverage, null);
   assert.equal(stats.idleAverage, null);
   assert.equal(stats.averageRank, null);
   assert.deepEqual(stats.history, []);
@@ -131,7 +137,7 @@ test('profiles with equal nicknames stay separate and names are used only for ga
   assert.equal(userStats(names[0], [legacy]).completedGames, 1);
   const results = allUserStats([{ id: 'east', name: names[0] }, { id: 'other-east', name: names[0] }], [first, second]);
   assert.equal(results[0].name, results[1].name);
-  assert.notEqual(results[0].dealerAverage, results[1].dealerAverage);
+  assert.notEqual(results[0].mainDealerAverage, results[1].mainDealerAverage);
 });
 
 test('statistics do not mutate recorded games', () => {
@@ -140,4 +146,20 @@ test('statistics do not mutate recorded games', () => {
   gameStats(game);
   userStats('east', [game]);
   assert.deepEqual(game, before);
+});
+
+test('wrong rounds affect upgrades and rank but never role counts or score denominators', () => {
+  const wrong = applyRound(start(), { type: 'wrong', wrongPlayer: 0 }, { id: 'wrong', now: 'then' });
+  const rows = bySeat(gameStats(complete(wrong)));
+  assert.deepEqual(rows.map(row => row.totalUpgrade), [0, 1, 1, 1, 1]);
+  assert.deepEqual(rows.map(row => row.rank), [5, 1, 1, 1, 1]);
+  assert.ok(rows.every(row => row.mainDealerBonus === 0 && row.mainDealerRounds === 0 && row.viceDealerRounds === 0 && row.idleRounds === 0 && row.mainDealerAverage === null && row.viceDealerAverage === null && row.idleAverage === null));
+  const scored = applyRound(wrong, { mainDealer: 4, viceDealer: 0, score: 80 }, { id: 'score', now: 'later' });
+  const stats = userStats('east', [complete(scored)]);
+  assert.equal(stats.completedGames, 1);
+  assert.equal(stats.totalUpgrade, 1);
+  assert.equal(stats.mainDealerRounds, 0);
+  assert.equal(stats.viceDealerRounds, 1);
+  assert.equal(stats.viceDealerAverage, 80);
+  assert.equal(stats.idleAverage, null);
 });

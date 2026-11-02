@@ -31,11 +31,32 @@ test('full export preserves scores, levels, competition ranks and career totals 
   const data = await collectRecords(call, { triggerGame: game.id });
   assert.equal(data.games[0].rounds[0].score, 0);
   assert.deepEqual(data.games[0].statistics.map(row => row.rank), [1, 2, 3, 3, 3]);
-  assert.equal(data.userStatistics[0].dealerAverage, 0);
+  assert.equal(data.userStatistics[0].mainDealerAverage, 0);
   assert.equal(data.userStatistics[0].completedGames, 1);
   assert.equal(data.userStatistics[0].averageRank, 2);
   assert.ok(!JSON.stringify(data).includes('hidden-'));
   assert.ok(!JSON.stringify(data).includes('writeKey'));
+});
+
+test('backup preserves wrong player, pending main dealer and undo metadata with separated role statistics', async () => {
+  const { game, call } = fixture();
+  let changed = applyRound({ ...game, status: 'active' }, { type: 'wrong', wrongPlayer: 3 }, { id: 'wrong', now: 'later' });
+  Object.assign(game, finishGame(changed, 'end'), { version: 4, roundCount: 2 });
+  let data = await collectRecords(call);
+  assert.equal(data.schemaVersion, 2);
+  assert.equal(data.games[0].mainDealer, null);
+  assert.equal(data.games[0].rounds[1].type, 'wrong');
+  assert.equal(data.games[0].rounds[1].wrongPlayer, 3);
+  assert.equal(data.games[0].rounds[1].mainDealerBefore, 1);
+  assert.equal(data.userStatistics[0].mainDealerRounds, 1);
+  assert.equal(data.userStatistics[0].viceDealerRounds, 0);
+  assert.equal(data.userStatistics[0].mainDealerAverage, 0);
+  changed = applyRound({ ...game, status: 'active' }, { mainDealer: 4, viceDealer: 1, score: 120 }, { id: 'manual', now: 'later' });
+  Object.assign(game, finishGame(changed, 'end'), { version: 6, roundCount: 3 });
+  data = await collectRecords(call);
+  assert.equal(data.games[0].rounds[2].mainDealer, 4);
+  assert.equal(data.games[0].rounds[2].mainDealerBefore, null);
+  assert.ok(!JSON.stringify(data).includes('hidden-'));
 });
 
 test('backup retries a changing database and refuses a missing triggered game', async () => {

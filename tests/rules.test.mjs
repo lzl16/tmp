@@ -91,3 +91,35 @@ test('finished games preserve records and reject append or undo', () => {
   assert.throws(() => applyRound(finished, { viceDealer: 2, score: 120 }, { id: 'two', now: 'later' }), /已经结束/);
   assert.throws(() => undoLastRound(finished), /已经结束/);
 });
+
+test('wrong play upgrades exactly the other four players, wraps A and can be undone', () => {
+  for (let wrongPlayer = 0; wrongPlayer < 5; wrongPlayer++) {
+    const initial = { ...start(), levels: ['A', 'K', '2', '9', '10'] };
+    const next = applyRound(initial, { type: 'wrong', wrongPlayer, levels: Array(5).fill('A') }, { id: 'wrong', now: 'then' });
+    assert.deepEqual(next.levels, initial.levels.map((rank, seat) => rankAfter(rank, seat === wrongPlayer ? 0 : 1)));
+    assert.equal(next.mainDealer, null);
+    assert.equal(next.rounds[0].score, null);
+    assert.equal(next.rounds[0].wrongPlayer, wrongPlayer);
+    assert.deepEqual(undoLastRound(next), initial);
+  }
+  for (const wrongPlayer of [-1, 5, '0', null, undefined]) assert.throws(() => applyRound(start(), { type: 'wrong', wrongPlayer }, { id: 'bad', now: 'then' }));
+  assert.throws(() => applyRound(start(), { type: 'other' }, { id: 'bad', now: 'then' }));
+});
+
+test('after wrong play both dealers are chosen manually once and undo restores pending selection', () => {
+  const initial = start();
+  const wrong = applyRound(initial, { type: 'wrong', wrongPlayer: 2 }, { id: 'wrong', now: 'then' });
+  for (const payload of [{ viceDealer: 1, score: 80 }, { mainDealer: 4, viceDealer: 4, score: 80 }]) {
+    assert.throws(() => applyRound(wrong, payload, { id: 'invalid', now: 'later' }));
+  }
+  const normal = applyRound(wrong, { mainDealer: 4, viceDealer: 1, score: 80 }, { id: 'normal', now: 'later' });
+  assert.equal(normal.rounds[1].mainDealer, 4);
+  assert.equal(normal.rounds[1].viceDealer, 1);
+  assert.equal(normal.mainDealer, 1);
+  assert.deepEqual(undoLastRound(normal), wrong);
+  const resumed = applyRound(normal, { mainDealer: 4, viceDealer: 2, score: 120 }, { id: 'resumed', now: 'later' });
+  assert.equal(resumed.rounds[2].mainDealer, 1, 'manual override must not persist beyond the next score round');
+  const anotherWrong = applyRound(wrong, { type: 'wrong', wrongPlayer: 0 }, { id: 'wrong2', now: 'later' });
+  assert.equal(anotherWrong.mainDealer, null);
+  assert.deepEqual(undoLastRound(anotherWrong), wrong);
+});

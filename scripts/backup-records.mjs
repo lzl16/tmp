@@ -76,7 +76,7 @@ function cleanGame(game, userIds) {
     throw new Error('Incomplete game or missing player; no partial backup was written');
   }
   const clean = pick(game, ['id', 'title', 'playerIds', 'players', 'initialMainDealer', 'mainDealer', 'levels', 'status', 'version', 'createdAt', 'updatedAt', 'finishedAt']);
-  clean.rounds = game.rounds.map(round => pick(round, ['id', 'number', 'mainDealer', 'viceDealer', 'score', 'dealerUpgrade', 'idleUpgrade', 'levelsBefore', 'levelsAfter', 'nextMainDealer', 'createdAt']));
+  clean.rounds = game.rounds.map(round => pick(round, ['id', 'number', 'type', 'wrongPlayer', 'mainDealerBefore', 'mainDealer', 'viceDealer', 'score', 'dealerUpgrade', 'idleUpgrade', 'levelsBefore', 'levelsAfter', 'nextMainDealer', 'createdAt']));
   clean.roundCount = clean.rounds.length;
   clean.statistics = gameStats(clean);
   return clean;
@@ -104,7 +104,7 @@ export async function collectRecords(call, { envId = DEFAULT_ENV, triggerGame = 
     if (!Array.isArray(finalUsers)) throw new Error('Incomplete player list');
     if (indexSignature(index) !== indexSignature(games) || indexSignature(index) !== indexSignature(finalIndex) || digest(users) !== digest(finalUsers.map(cleanUser).sort((a, b) => a.id.localeCompare(b.id)))) continue;
     if (triggerGame && !games.some(game => game.id === triggerGame && game.status === 'finished')) throw new Error('Triggered game has not finished in the database');
-    return { schemaVersion: 1, source: { environment: envId, collection: 'scorekeeper_rooms', scope: 'v2-profiles-and-games' }, users, games, userStatistics: allUserStats(users, games) };
+    return { schemaVersion: 2, source: { environment: envId, collection: 'scorekeeper_rooms', scope: 'v2-profiles-and-games' }, users, games, userStatistics: allUserStats(users, games) };
   }
   throw new Error('Records kept changing during export; retry the backup later');
 }

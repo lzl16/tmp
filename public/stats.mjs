@@ -16,24 +16,32 @@ export function gameStats(game) {
     rank: null,
     totalUpgrade: 0,
     mainDealerBonus: rounds.length && seat === game.mainDealer ? 0.5 : 0,
-    dealerRounds: 0,
+    mainDealerRounds: 0,
+    viceDealerRounds: 0,
     idleRounds: 0,
-    dealerScoreTotal: 0,
+    mainDealerScoreTotal: 0,
+    viceDealerScoreTotal: 0,
     idleScoreTotal: 0,
-    dealerAverage: null,
+    mainDealerAverage: null,
+    viceDealerAverage: null,
     idleAverage: null,
     finalLevel: '2',
   }));
 
   for (const round of rounds) {
+    if (round.type === 'wrong') {
+      for (const row of rows) row.totalUpgrade += row.seat === round.wrongPlayer ? 0 : 1;
+      continue;
+    }
     const fallback = round.dealerUpgrade == null || round.idleUpgrade == null
       ? scoreOutcome(round.score) : null;
     const dealerUpgrade = round.dealerUpgrade ?? fallback.dealerUpgrade;
     const idleUpgrade = round.idleUpgrade ?? fallback.idleUpgrade;
     for (const row of rows) {
       if (row.seat === round.mainDealer || row.seat === round.viceDealer) {
-        row.dealerRounds += 1;
-        row.dealerScoreTotal += round.score;
+        const role = row.seat === round.mainDealer ? 'mainDealer' : 'viceDealer';
+        row[role + 'Rounds'] += 1;
+        row[role + 'ScoreTotal'] += round.score;
         row.totalUpgrade += dealerUpgrade;
       } else {
         row.idleRounds += 1;
@@ -44,7 +52,8 @@ export function gameStats(game) {
   }
 
   for (const row of rows) {
-    row.dealerAverage = average(row.dealerScoreTotal, row.dealerRounds);
+    row.mainDealerAverage = average(row.mainDealerScoreTotal, row.mainDealerRounds);
+    row.viceDealerAverage = average(row.viceDealerScoreTotal, row.viceDealerRounds);
     row.idleAverage = average(row.idleScoreTotal, row.idleRounds);
     row.finalLevel = game.levels?.[row.seat]
       ?? rounds.at(-1)?.levelsAfter?.[row.seat]
@@ -87,24 +96,30 @@ export function userStats(userId, games) {
   const result = {
     userId,
     completedGames: history.length,
-    dealerRounds: 0,
+    mainDealerRounds: 0,
+    viceDealerRounds: 0,
     idleRounds: 0,
-    dealerScoreTotal: 0,
+    mainDealerScoreTotal: 0,
+    viceDealerScoreTotal: 0,
     idleScoreTotal: 0,
-    dealerAverage: null,
+    mainDealerAverage: null,
+    viceDealerAverage: null,
     idleAverage: null,
     averageRank: null,
     totalUpgrade: 0,
     history,
   };
   for (const row of history) {
-    result.dealerRounds += row.dealerRounds;
+    result.mainDealerRounds += row.mainDealerRounds;
+    result.viceDealerRounds += row.viceDealerRounds;
     result.idleRounds += row.idleRounds;
-    result.dealerScoreTotal += row.dealerScoreTotal;
+    result.mainDealerScoreTotal += row.mainDealerScoreTotal;
+    result.viceDealerScoreTotal += row.viceDealerScoreTotal;
     result.idleScoreTotal += row.idleScoreTotal;
     result.totalUpgrade += row.totalUpgrade;
   }
-  result.dealerAverage = average(result.dealerScoreTotal, result.dealerRounds);
+  result.mainDealerAverage = average(result.mainDealerScoreTotal, result.mainDealerRounds);
+  result.viceDealerAverage = average(result.viceDealerScoreTotal, result.viceDealerRounds);
   result.idleAverage = average(result.idleScoreTotal, result.idleRounds);
   result.averageRank = average(history.reduce((sum, row) => sum + row.rank, 0), history.length);
   return result;

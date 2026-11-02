@@ -40,7 +40,7 @@ test('v2 local lifecycle associates profiles, secures game, and aggregates compl
   ({game}=await api('finishGame',{gameId:game.id},game.version));
   const {stats}=await api('getUserHistory',{userId:users[2].id});
   assert.equal(stats.completedGames,1);assert.equal(stats.averageRank,1);
-  assert.equal(stats.dealerRounds,1);assert.equal(stats.dealerAverage,0);assert.equal(stats.idleAverage,null);
+  assert.equal(stats.mainDealerRounds,0);assert.equal(stats.viceDealerRounds,1);assert.equal(stats.viceDealerAverage,0);assert.equal(stats.idleAverage,null);
   assert.ok(!JSON.stringify(game).includes(key));
 });
 
@@ -57,4 +57,19 @@ test('independent active games can coexist; undo updates cumulative stats and hi
   let cursor=null,all=[];
   do {const page=await api('listGames',{limit:1,cursor});all.push(...page.games);cursor=page.nextCursor;}while(cursor);
   assert.ok(all.length>=3);
+});
+
+test('local API preserves wrong play and requires manual dealers after reload',async()=>{
+  const users=await createUsers('错牌组');
+  let {game}=await api('createGame',{playerIds:users.map(u=>u.id),mainDealer:0});
+  ({game}=await api('addRound',{gameId:game.id,type:'wrong',wrongPlayer:4},game.version));
+  ({game}=await api('getGame',{gameId:game.id}));
+  assert.equal(game.mainDealer,null);
+  assert.deepEqual(game.levels,['3','3','3','3','2']);
+  await assert.rejects(api('addRound',{gameId:game.id,viceDealer:1,score:120},game.version),/主庄/);
+  ({game}=await api('addRound',{gameId:game.id,mainDealer:3,viceDealer:0,score:80},game.version));
+  assert.equal(game.rounds[1].mainDealer,3);
+  assert.equal(game.mainDealer,0);
+  ({game}=await api('undoRound',{gameId:game.id},game.version));
+  assert.equal(game.mainDealer,null);
 });

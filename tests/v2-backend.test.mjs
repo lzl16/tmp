@@ -103,6 +103,31 @@ test('finish dispatches backup only after commit and backup failure never rolls 
   assert.equal(called, 1, 'a stale repeated finish must not dispatch again');
 });
 
+test('wrong play is authorized and versioned, survives reload, and manual dealers cannot be forged later', async () => {
+  const { call, auth, users } = await setup();
+  assert.equal((await call('addRound', { type: 'wrong', wrongPlayer: 1 }, { ...auth, writeKey: 'bad', expectedVersion: 0 })).error.code, 'UNAUTHORIZED');
+  assert.equal((await call('addRound', { type: 'wrong' }, { ...auth, expectedVersion: 0 })).error.code, 'VALIDATION');
+  const wrong = await call('addRound', { type: 'wrong', wrongPlayer: 1, levels: Array(5).fill('A'), nextMainDealer: 3 }, { ...auth, expectedVersion: 0 });
+  assert.deepEqual(wrong.game.levels, ['3', '2', '3', '3', '3']);
+  assert.equal(wrong.game.mainDealer, null);
+  assert.equal((await call('getGame', {}, auth)).game.rounds[0].wrongPlayer, 1);
+  assert.equal((await call('addRound', { viceDealer: 1, score: 80 }, { ...auth, expectedVersion: 1 })).error.code, 'VALIDATION');
+  assert.equal((await call('addRound', { type: 'wrong', wrongPlayer: 2 }, { ...auth, expectedVersion: 0 })).error.code, 'STALE_VERSION');
+  const normal = await call('addRound', { mainDealer: 3, viceDealer: 4, score: 120 }, { ...auth, expectedVersion: 1 });
+  assert.equal(normal.game.rounds[1].mainDealer, 3);
+  assert.equal(normal.game.rounds[1].viceDealer, 4);
+  const undone = await call('undoRound', {}, { ...auth, expectedVersion: 2 });
+  assert.equal(undone.game.mainDealer, null);
+  assert.deepEqual(undone.game.levels, wrong.game.levels);
+  const ended = await call('finishGame', {}, { ...auth, expectedVersion: 3 });
+  assert.deepEqual(ended.game.statistics.map(row => row.rank), [1, 1, 1, 1, 5]);
+  const history = await call('getUserHistory', { userId: users[0].id });
+  assert.equal(history.stats.completedGames, 1);
+  assert.equal(history.stats.mainDealerRounds, 0);
+  assert.equal(history.stats.viceDealerRounds, 0);
+  assert.equal(history.stats.mainDealerAverage, null);
+});
+
 test('nickname registration normalizes NFKC, whitespace and case atomically', async () => {
   const { call, db } = await setup();
   const results = await Promise.all([call('createUser', { name: ' Ａlice ' }), call('createUser', { name: 'alice' })]);
@@ -179,9 +204,9 @@ test('settlement and statistics are server-derived; finish records safe final st
   assert.equal(best.userId, users[0].id);
   assert.equal(best.totalUpgrade, 5);
   assert.equal(best.rank, 1);
-  assert.equal(best.dealerRounds, 1);
+  assert.equal(best.mainDealerRounds, 1);
   assert.equal(best.idleRounds, 1);
-  assert.equal(best.dealerAverage, 35);
+  assert.equal(best.mainDealerAverage, 35);
   assert.equal(best.idleAverage, 200);
   const stored = db.store.get(`${COLLECTION}/${auth.gameId}`);
   assert.deepEqual(stored.statistics, finished.game.statistics);
@@ -219,9 +244,11 @@ test('career means use all completed rounds and exclude active or empty games', 
   const history = await call('getUserHistory', { userId: users[0].id });
   assert.equal(history.user.id, users[0].id);
   assert.equal(history.stats.completedGames, 1);
-  assert.equal(history.stats.dealerRounds, 2);
+  assert.equal(history.stats.mainDealerRounds, 1);
+  assert.equal(history.stats.viceDealerRounds, 1);
   assert.equal(history.stats.idleRounds, 0);
-  assert.equal(history.stats.dealerAverage, 60);
+  assert.equal(history.stats.mainDealerAverage, 80);
+  assert.equal(history.stats.viceDealerAverage, 40);
   assert.equal(history.stats.idleAverage, null);
   assert.equal(history.stats.history.length, 1);
   assert.equal(history.games.length, 2, 'empty finished games remain viewable but have no ranking');
