@@ -1,5 +1,15 @@
 # 部署记录
 
+## 2026-11-02 数据备份（部分启用，待腾讯云部署授权）
+
+- 用户明确选择将昵称、得分、名次及统计保存到原公开仓库 `lzl16/tmp`。
+- 备份工作流已上传且启用，首次运行 https://github.com/lzl16/tmp/actions/runs/41385421477 成功，提交 `de9ed04`。
+- `backups/database.json` 已包含 10 位玩家、5 场牌局及历史统计，导出时间 `2026-11-02T03:53:09.187Z`，校验值 `992532d5f3c028132ebb0febb11acf6df409ecc863d58816b2964a3a985b207a`；不含管理密钥或哈希。
+- GitHub 每小时第 17 分钟进行补备份检查，未变更不提交。
+- 结算后触发的代码及 ZIP 已准备，55 项测试通过；尚未部署到腾讯云。控制台会话已过期，停在用户重新登录页面。还需在云函数设置 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main` 及用户亲自生成、直接填入的 Actions-write 最小权限 `GITHUB_BACKUP_TOKEN`。
+- 预备静态版本 `f5304de38bb1`，云函数包 `artifacts/scorekeeper-backup-function.zip`；当前线上仍是下述已验证版本。不得把仅代码准备完成表述为结算后立即触发已上线。
+- 备选私有仓库 `lzl16/poker-score-records` 未上传成绩，工作流停用且仓库已归档。
+
 ## 2026-10-29 读取失败修复
 
 - 线上复现错误 `LOGIN_TYPE_DISABLED`，控制台“身份认证 → 登录方式 → 允许匿名登入”为关闭状态，恢复网站原有的匿名登录后，原有 5 位玩家和 3 场牌局重新可读；未修改数据库访问规则或牌局记录。
