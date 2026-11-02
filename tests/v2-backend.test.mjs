@@ -67,6 +67,20 @@ async function setup(options = {}) {
   return { db, handle, call, users, payload, created, auth };
 }
 
+test('unexpected database errors expose only a safe diagnostic identifier', async () => {
+  for (const [error, diagnostic] of [
+    [{ code: 'DATABASE_REQUEST_FAILED', message: 'private credential=secret' }, 'DATABASE_REQUEST_FAILED'],
+    [{ code: 'unsafe credential=secret', message: 'private' }, 'UNKNOWN'],
+    [new TypeError('private request body'), 'TypeError'],
+  ]) {
+    const db = { collection: () => { throw error; } };
+    const result = await createHandler({ db })({ apiVersion: 2, action: 'listUsers' });
+    assert.equal(result.error.code, 'SERVER_ERROR');
+    assert.equal(result.error.message, `云端暂时无法处理，请稍后重试（${diagnostic}）`);
+    assert.doesNotMatch(JSON.stringify(result), /private|credential|secret|request body/);
+  }
+});
+
 test('finish dispatches backup only after commit and backup failure never rolls settlement back', async () => {
   let db, called = 0, committed;
   const context = await setup({ onGameFinished: async game => {

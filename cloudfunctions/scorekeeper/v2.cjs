@@ -320,8 +320,12 @@ function createHandler({ db, now = () => new Date().toISOString(), randomId = ()
     } catch (error) {
       if (error instanceof ApiError || error?.name === 'RuleError') return { error: { code: error.code, message: error.message } };
       if (String(error?.code).includes('TRANSACTION_CONFLICT')) return { error: { code: 'STALE_VERSION', message: '有人正在更新记录，请刷新后重试' } };
-      console.error('scorekeeper v2 failure', error?.code || error?.name || 'UNKNOWN');
-      return { error: { code: 'SERVER_ERROR', message: '云端暂时无法处理，请稍后重试' } };
+      // Return only a bounded error identifier. SDK messages/stacks can include
+      // request details and must never be exposed to visitors.
+      const diagnostic = /^[A-Z][A-Z0-9_]{1,63}$/.test(error?.code || '') ? error.code :
+        ['TypeError', 'RangeError', 'ReferenceError', 'SyntaxError'].includes(error?.name) ? error.name : 'UNKNOWN';
+      console.error('scorekeeper v2 failure', diagnostic);
+      return { error: { code: 'SERVER_ERROR', message: `云端暂时无法处理，请稍后重试（${diagnostic}）` } };
     }
   };
 }

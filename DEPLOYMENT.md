@@ -1,14 +1,16 @@
 # 部署记录
 
-## 2026-11-02 数据备份（代码已部署，待触发授权验收）
+## 2026-11-02 数据备份（已部署并通过结算自动触发验收）
 
 - 用户明确选择将昵称、得分、名次及统计保存到原公开仓库 `lzl16/tmp`。
 - 备份工作流已上传且启用，首次运行 https://github.com/lzl16/tmp/actions/runs/41385421477 成功，提交 `de9ed04`。
-- `backups/database.json` 已包含 10 位玩家、5 场牌局及历史统计，导出时间 `2026-11-02T03:53:09.187Z`，校验值 `992532d5f3c028132ebb0febb11acf6df409ecc863d58816b2964a3a985b207a`；不含管理密钥或哈希。
+- `backups/database.json` 最新包含 10 位玩家、6 场牌局及历史统计，导出时间 `2026-11-02T04:43:21.757Z`，校验值 `983aa0b9ff803493753cf6b9d6d5dde0c3ad70a17c94e76f958965a1d4704cee`；不含管理密钥或哈希。
 - GitHub 每小时第 17 分钟进行补备份检查，未变更不提交。
-- 结算后触发的代码与网页已部署，55 项测试通过；云函数部署后只读读取 10 位玩家正常。云函数配置修改时间显示 `2026-11-02 12:07:58`。
-- 云函数配置目标为 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main`。用户已回复“授权已配置”，确认亲自生成并将仅 tmp 仓库 Actions-write 的令牌填入 `GITHUB_BACKUP_TOKEN` 后保存；令牌有效期表单显示至 2027-01-31。未读取或记录凭据值。结算自动触发尚待线上验收；新增空场验收记录正等待用户明确同意。
-- 当前静态版本 `f5304de38bb1`，云函数包 `artifacts/scorekeeper-backup-function.zip`。不得把代码部署完成表述为结算后立即触发已验收。
+- 结算后触发的代码与网页已部署，56 项测试通过；用户亲自生成并保存仅 tmp 仓库 Actions-write 的 `GITHUB_BACKUP_TOKEN`，目标为 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main`。令牌有效期表单显示至 2027-01-31，未读取或记录凭据值。
+- 用户明确批准创建并结束“自动备份验收（空场）”，仅使用测试一至测试五。记录 `g_f024c60a5c01e4211da5aa1ceb65b711` 已结束，0 局，版本 1；备份中的全部用户历史统计与验收前完全一致，原有 5 场均保留。
+- 结束后无需本机手动触发，云端自动启动 https://github.com/lzl16/tmp/actions/runs/41390006611 ，北京时间 12:43:07 开始，12:43:25 成功，生成备份提交 `e67463c`。页面因 1 秒 GitHub 等待上限提示后台重试，但该请求已被 GitHub 接受并成功完成。
+- 验收初期出现免费环境 3 秒执行超时及一次通用服务错误。先只读核对未落库，再重试；重新部署后创建、结算均成功。新增安全错误编号，未知 SDK 原始信息、堆栈与请求内容不会返回访客；未开通付费日志，未更改免费版超时上限。
+- 当前静态版本 `f5304de38bb1`，云函数包 `artifacts/scorekeeper-backup-function.zip`。验收截图 `artifacts/automatic-backup-verified.png`。
 - 备选私有仓库 `lzl16/poker-score-records` 未上传成绩，工作流停用且仓库已归档。
 
 ## 2026-10-29 读取失败修复
