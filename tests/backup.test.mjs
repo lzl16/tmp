@@ -33,6 +33,9 @@ test('full export preserves scores, levels, competition ranks and career totals 
   assert.deepEqual(data.games[0].statistics.map(row => row.rank), [1, 2, 3, 3, 3]);
   assert.equal(data.userStatistics[0].mainDealerAverage, 0);
   assert.equal(data.userStatistics[0].mainDealerConcededUpgradeAverage, 0);
+  assert.equal(data.userStatistics[0].mainDealerUpgradeAverage, 4);
+  assert.equal(data.userStatistics[1].viceDealerUpgradeAverage, 4);
+  assert.equal(data.userStatistics[2].idleConcededUpgradeAverage, 4);
   assert.equal(data.userStatistics[0].wrongRounds, 0);
   assert.equal(data.userStatistics[0].completedGames, 1);
   assert.equal(data.userStatistics[0].averageRank, 2);

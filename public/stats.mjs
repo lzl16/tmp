@@ -20,6 +20,12 @@ export function gameStats(game) {
     viceDealerRounds: 0,
     idleRounds: 0,
     wrongRounds: 0,
+    mainDealerUpgradeTotal: 0,
+    viceDealerUpgradeTotal: 0,
+    idleConcededUpgradeTotal: 0,
+    mainDealerUpgradeAverage: null,
+    viceDealerUpgradeAverage: null,
+    idleConcededUpgradeAverage: null,
     mainDealerConcededUpgradeTotal: 0,
     viceDealerConcededUpgradeTotal: 0,
     idleUpgradeTotal: 0,
@@ -53,17 +59,22 @@ export function gameStats(game) {
         row[role + 'Rounds'] += 1;
         row[role + 'ScoreTotal'] += round.score;
         row[role + 'ConcededUpgradeTotal'] += idleUpgrade;
+        row[role + 'UpgradeTotal'] += dealerUpgrade;
         row.totalUpgrade += dealerUpgrade;
       } else {
         row.idleRounds += 1;
         row.idleScoreTotal += round.score;
         row.idleUpgradeTotal += idleUpgrade;
+        row.idleConcededUpgradeTotal += dealerUpgrade;
         row.totalUpgrade += idleUpgrade;
       }
     }
   }
 
   for (const row of rows) {
+    row.mainDealerUpgradeAverage = average(row.mainDealerUpgradeTotal, row.mainDealerRounds);
+    row.viceDealerUpgradeAverage = average(row.viceDealerUpgradeTotal, row.viceDealerRounds);
+    row.idleConcededUpgradeAverage = average(row.idleConcededUpgradeTotal, row.idleRounds);
     row.mainDealerConcededUpgradeAverage = average(row.mainDealerConcededUpgradeTotal, row.mainDealerRounds);
     row.viceDealerConcededUpgradeAverage = average(row.viceDealerConcededUpgradeTotal, row.viceDealerRounds);
     row.idleUpgradeAverage = average(row.idleUpgradeTotal, row.idleRounds);
@@ -115,6 +126,12 @@ export function userStats(userId, games) {
     viceDealerRounds: 0,
     idleRounds: 0,
     wrongRounds: 0,
+    mainDealerUpgradeTotal: 0,
+    viceDealerUpgradeTotal: 0,
+    idleConcededUpgradeTotal: 0,
+    mainDealerUpgradeAverage: null,
+    viceDealerUpgradeAverage: null,
+    idleConcededUpgradeAverage: null,
     mainDealerConcededUpgradeTotal: 0,
     viceDealerConcededUpgradeTotal: 0,
     idleUpgradeTotal: 0,
@@ -136,6 +153,9 @@ export function userStats(userId, games) {
     result.viceDealerRounds += row.viceDealerRounds;
     result.idleRounds += row.idleRounds;
     result.wrongRounds += row.wrongRounds;
+    result.mainDealerUpgradeTotal += row.mainDealerUpgradeTotal;
+    result.viceDealerUpgradeTotal += row.viceDealerUpgradeTotal;
+    result.idleConcededUpgradeTotal += row.idleConcededUpgradeTotal;
     result.mainDealerConcededUpgradeTotal += row.mainDealerConcededUpgradeTotal;
     result.viceDealerConcededUpgradeTotal += row.viceDealerConcededUpgradeTotal;
     result.idleUpgradeTotal += row.idleUpgradeTotal;
@@ -144,6 +164,9 @@ export function userStats(userId, games) {
     result.idleScoreTotal += row.idleScoreTotal;
     result.totalUpgrade += row.totalUpgrade;
   }
+  result.mainDealerUpgradeAverage = average(result.mainDealerUpgradeTotal, result.mainDealerRounds);
+  result.viceDealerUpgradeAverage = average(result.viceDealerUpgradeTotal, result.viceDealerRounds);
+  result.idleConcededUpgradeAverage = average(result.idleConcededUpgradeTotal, result.idleRounds);
   result.mainDealerConcededUpgradeAverage = average(result.mainDealerConcededUpgradeTotal, result.mainDealerRounds);
   result.viceDealerConcededUpgradeAverage = average(result.viceDealerConcededUpgradeTotal, result.viceDealerRounds);
   result.idleUpgradeAverage = average(result.idleUpgradeTotal, result.idleRounds);

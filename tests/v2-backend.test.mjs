@@ -127,6 +127,9 @@ test('wrong play is authorized and versioned, survives reload, and manual dealer
   assert.equal(history.stats.viceDealerRounds, 0);
   assert.equal(history.stats.mainDealerAverage, null);
   assert.equal(history.stats.mainDealerConcededUpgradeAverage, null);
+  assert.equal(history.stats.mainDealerUpgradeAverage, null);
+  assert.equal(history.stats.viceDealerUpgradeAverage, null);
+  assert.equal(history.stats.idleConcededUpgradeAverage, null);
   assert.equal((await call('getUserHistory', { userId: users[1].id })).stats.wrongRounds, 1);
 });
 
