@@ -7,7 +7,7 @@
 - `backups/database.json` 已包含 10 位玩家、5 场牌局及历史统计，导出时间 `2026-11-02T03:53:09.187Z`，校验值 `992532d5f3c028132ebb0febb11acf6df409ecc863d58816b2964a3a985b207a`；不含管理密钥或哈希。
 - GitHub 每小时第 17 分钟进行补备份检查，未变更不提交。
 - 结算后触发的代码与网页已部署，55 项测试通过；云函数部署后只读读取 10 位玩家正常。云函数配置修改时间显示 `2026-11-02 12:07:58`。
-- 现已在云函数编辑表单准备 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main`、空白 `GITHUB_BACKUP_TOKEN`，等待用户亲自生成并直接填入仅 tmp 仓库 Actions-write 的令牌后保存；令牌有效期表单显示至 2027-01-31。尚未确认授权已保存，结算自动触发尚未线上验收。
+- 云函数配置目标为 `GITHUB_BACKUP_REPOSITORY=lzl16/tmp`、`GITHUB_BACKUP_BRANCH=main`。用户已回复“授权已配置”，确认亲自生成并将仅 tmp 仓库 Actions-write 的令牌填入 `GITHUB_BACKUP_TOKEN` 后保存；令牌有效期表单显示至 2027-01-31。未读取或记录凭据值。结算自动触发尚待线上验收；新增空场验收记录正等待用户明确同意。
 - 当前静态版本 `f5304de38bb1`，云函数包 `artifacts/scorekeeper-backup-function.zip`。不得把代码部署完成表述为结算后立即触发已验收。
 - 备选私有仓库 `lzl16/poker-score-records` 未上传成绩，工作流停用且仓库已归档。
 
