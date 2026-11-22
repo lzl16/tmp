@@ -29,6 +29,15 @@ class ApiError extends Error {
 
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function documentData(result) { return Array.isArray(result?.data) ? result.data[0] : result?.data; }
+async function insertDocument(db, doc, duplicateCode, duplicateMessage) {
+  try {
+    // add with an explicit _id is insert-only: a collision cannot overwrite data.
+    await db.collection(COLLECTION).add({ ...doc, _id: doc.id });
+  } catch (error) {
+    if (error?.code === 'DATABASE_DUPLICATE_WRITE') throw new ApiError(duplicateCode, duplicateMessage);
+    throw error;
+  }
+}
 function hashKey(key, salt) { return scryptSync(key, salt, 32).toString('hex'); }
 function validKey(key, stored, salt) {
   if (typeof key !== 'string' || !KEY.test(key) || typeof stored !== 'string' || !/^[a-f0-9]{64}$/.test(stored)) return false;
@@ -143,11 +152,7 @@ function createHandler({ db, now = () => new Date().toISOString(), randomId = ()
 
       if (event.action === 'createUser') {
         const user = profileFor(payload.name, now());
-        await db.runTransaction(async (transaction) => {
-          const ref = transaction.collection(COLLECTION).doc(user.id);
-          if (documentData(await ref.get())) throw new ApiError('DUPLICATE_USER', '这个昵称已存在，请从已有玩家中选择');
-          await ref.set(user);
-        });
+        await insertDocument(db, user, 'DUPLICATE_USER', '这个昵称已存在，请从已有玩家中选择');
         return { user: publicUser(user) };
       }
 
@@ -175,20 +180,17 @@ function createHandler({ db, now = () => new Date().toISOString(), randomId = ()
         const id = `g_${randomId()}`;
         const writeKey = randomKey();
         const stamp = now();
-        let game;
-        await db.runTransaction(async (transaction) => {
-          const ref = transaction.collection(COLLECTION).doc(id);
-          if (documentData(await ref.get())) throw new ApiError('RETRY', '牌局编号冲突，请重试');
-          const users = await Promise.all(payload.playerIds.map(async (userId) => documentData(await transaction.collection(COLLECTION).doc(userId).get())));
-          if (users.some((user) => !user || user.kind !== 'profile')) throw new ApiError('NOT_FOUND', '有玩家档案不存在，请刷新后重新选择');
-          game = {
-            ...rules.createGame({ players: users.map((user) => user.name), mainDealer: payload.mainDealer }, { id, now: stamp }),
-            kind: 'game', title: cleanTitle(payload.title), playerIds: [...payload.playerIds], version: 0, updatedAt: stamp,
-            writeKeyHash: hashKey(writeKey, `${id}:write`),
-          };
-          checkSize(game);
-          await ref.set(game);
-        });
+        // Profiles are immutable in this API. Validate them before a single atomic
+        // insert instead of opening a transaction and reading a nonexistent game.
+        const users = await Promise.all(payload.playerIds.map(async (userId) => documentData(await db.collection(COLLECTION).doc(userId).get())));
+        if (users.some((user) => !user || user.kind !== 'profile')) throw new ApiError('NOT_FOUND', '有玩家档案不存在，请刷新后重新选择');
+        const game = {
+          ...rules.createGame({ players: users.map((user) => user.name), mainDealer: payload.mainDealer }, { id, now: stamp }),
+          kind: 'game', title: cleanTitle(payload.title), playerIds: [...payload.playerIds], version: 0, updatedAt: stamp,
+          writeKeyHash: hashKey(writeKey, `${id}:write`),
+        };
+        checkSize(game);
+        await insertDocument(db, game, 'RETRY', '牌局编号冲突，请重试');
         return { game: publicGame(game, stats), writeKey };
       }
 

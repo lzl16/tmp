@@ -12,6 +12,12 @@ function memoryDb() {
   let queriedPages = 0;
   const transactionOperationCounts = [];
   const collection = (name, data = store, operation = () => {}) => ({
+    add: async (value) => {
+      const key = `${name}/${value._id}`;
+      if (data.has(key)) throw Object.assign(new Error('duplicate ID'), { code: 'DATABASE_DUPLICATE_WRITE' });
+      data.set(key, structuredClone(value));
+      return { id: value._id };
+    },
     doc: (id) => ({
       get: async () => { operation(); return { data: data.has(`${name}/${id}`) ? [structuredClone(data.get(`${name}/${id}`))] : [] }; },
       set: async (value) => { operation(); data.set(`${name}/${id}`, structuredClone(value)); },
@@ -66,6 +72,24 @@ async function setup(options = {}) {
   const auth = { gameId: created.game.id, writeKey: created.writeKey };
   return { db, handle, call, users, payload, created, auth };
 }
+
+test('new games and profiles avoid missing-document transaction reads and collisions never overwrite', async () => {
+  const { db, call, payload, auth } = await setup();
+  const original = structuredClone(db.store.get(`${COLLECTION}/${auth.gameId}`));
+  db.runTransaction = async () => { throw Object.assign(new Error('missing document transaction'), { code: 'DATABASE_TRANSACTION_FAIL' }); };
+  const created = await call('createGame', payload);
+  assert.ok(created.game, JSON.stringify(created));
+  assert.notEqual(created.game.id, auth.gameId);
+  assert.equal(created.game.status, 'active');
+  const concurrent = createHandler({ db, randomId: () => 'e'.repeat(32) });
+  const results = await Promise.all([1, 2].map(() => concurrent({ apiVersion: 2, action: 'createGame', payload })));
+  assert.equal(results.filter(r => r.game).length, 1);
+  assert.equal(results.filter(r => r.error?.code === 'RETRY').length, 1);
+  const names = await Promise.all([1, 2].map(() => call('createUser', { name: '新玩家' })));
+  assert.equal(names.filter(r => r.user).length, 1);
+  assert.equal(names.filter(r => r.error?.code === 'DUPLICATE_USER').length, 1);
+  assert.deepEqual(db.store.get(`${COLLECTION}/${auth.gameId}`), original);
+});
 
 test('unexpected database errors expose only a safe diagnostic identifier', async () => {
   for (const [error, diagnostic] of [
